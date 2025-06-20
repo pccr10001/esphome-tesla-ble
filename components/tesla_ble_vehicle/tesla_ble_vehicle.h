@@ -16,6 +16,8 @@
 
 #include <universal_message.pb.h>
 #include <vcsec.pb.h>
+#include <car_server.pb.h>
+#include <vehicle.pb.h>
 #include <errors.h>
 
 #include "custom_binary_sensor.h"
@@ -29,7 +31,8 @@ typedef enum BLE_CarServer_VehicleAction_E
 {
     SET_CHARGING_SWITCH,
     SET_CHARGING_AMPS,
-    SET_CHARGING_LIMIT
+    SET_CHARGING_LIMIT,
+    GET_SHIFT_STATE,
 } BLE_CarServer_VehicleAction;
 
 namespace esphome
@@ -182,13 +185,33 @@ namespace esphome
                 isChargeFlapOpenSensor->set_has_state(has_state);
             }
 
+            // Shift state (shift_state)
+            void set_sensor_shift_state(sensor::Sensor *s) { shiftStateSensor = s; }
+            void updateShiftState(int state)
+            {
+                if (shiftStateSensor != nullptr) {
+                    shiftStateSensor->publish_state(state);
+                }
+            }
+            void setShiftStateHasState(bool has_state)
+            {
+                if (shiftStateSensor != nullptr) {
+                    shiftStateSensor->publish_state(NAN);
+                }
+            }
+
             // set sensors to unknown (e.g. when vehicle is disconnected)
             void setSensors(bool has_state)
             {
                 isAsleepSensor->set_has_state(has_state);
                 isUnlockedSensor->set_has_state(has_state);
                 isUserPresentSensor->set_has_state(has_state);
+                setShiftStateHasState(has_state);
             }
+
+            // CarServer response parsing
+            int parseCarServerResponse(const CarServer_Response &response);
+            int parseVehicleData(const CarServer_VehicleData &vehicle_data);
 
         protected:
             std::queue<BLERXChunk> ble_read_queue_;
@@ -211,6 +234,7 @@ namespace esphome
             binary_sensor::CustomBinarySensor *isUnlockedSensor;
             binary_sensor::CustomBinarySensor *isUserPresentSensor;
             binary_sensor::CustomBinarySensor *isChargeFlapOpenSensor;
+            sensor::Sensor *shiftStateSensor;
 
             std::vector<unsigned char> ble_read_buffer_;
 

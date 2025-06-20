@@ -747,6 +747,10 @@ namespace esphome
           }
           ESP_LOGD(TAG, "Parsed CarServer.Response");
           log_carserver_response(TAG, &carserver_response);
+          
+          // Parse CarServer response for vehicle data (including ShiftState)
+          parseCarServerResponse(carserver_response);
+          
           if (carserver_response.has_actionStatus && !command_queue_.empty())
           {
             BLECommand &current_command = command_queue_.front();
@@ -1233,6 +1237,9 @@ namespace esphome
       case SET_CHARGING_LIMIT:
         action_str = "setChargingLimit";
         break;
+      case GET_SHIFT_STATE:
+        action_str = "getShiftState";
+        break;
       default:
         action_str = "setChargingParameters";
         break;
@@ -1258,6 +1265,9 @@ namespace esphome
         case SET_CHARGING_LIMIT:
           return_code = tesla_ble_client_->buildChargingSetLimitMessage(
               static_cast<int32_t>(param), message_buffer, &message_length);
+          break;
+        case GET_SHIFT_STATE:
+          return_code = tesla_ble_client_->buildGetShiftStateMessage(message_buffer, &message_length);
           break;
         default:
           ESP_LOGE(TAG, "Invalid action: %d", static_cast<int>(action));
@@ -1662,6 +1672,88 @@ namespace esphome
         ESP_LOGD(TAG, "Unhandled GATTC event %d", event);
         break;
       }
+    }
+
+    int TeslaBLEVehicle::parseCarServerResponse(const CarServer_Response &response)
+    {
+      ESP_LOGD(TAG, "Parsing CarServer response");
+
+      // Check response message type
+      switch (response.which_response_msg)
+      {
+      case CarServer_Response_getVehicleData_tag:
+        ESP_LOGD(TAG, "Response contains vehicle data");
+        parseVehicleData(response.response_msg.getVehicleData);
+        break;
+      default:
+        ESP_LOGD(TAG, "Unknown response message type: %d", response.which_response_msg);
+        break;
+      }
+
+      return 0;
+    }
+
+    int TeslaBLEVehicle::parseVehicleData(const CarServer_VehicleData &vehicle_data)
+    {
+      ESP_LOGD(TAG, "Parsing vehicle data");
+      
+      // Check if vehicle data contains drive state
+      if (vehicle_data.has_drive_state)
+      {
+        CarServer_DriveState drive_state = vehicle_data.drive_state;
+        
+        // Check if drive state contains shift state
+        if (drive_state.has_shift_state)
+        {
+          CarServer_ShiftState shift_state = drive_state.shift_state;
+          
+          // Parse shift state type
+          int shift_state_value = -1; // Invalid/Unknown
+          
+          switch (shift_state.which_type)
+          {
+            case CarServer_ShiftState_P_tag:
+              shift_state_value = 0; // Park
+              ESP_LOGD(TAG, "Shift state: Park (P)");
+              break;
+            case CarServer_ShiftState_R_tag:
+              shift_state_value = 1; // Reverse
+              ESP_LOGD(TAG, "Shift state: Reverse (R)");
+              break;
+            case CarServer_ShiftState_N_tag:
+              shift_state_value = 2; // Neutral
+              ESP_LOGD(TAG, "Shift state: Neutral (N)");
+              break;
+            case CarServer_ShiftState_D_tag:
+              shift_state_value = 3; // Drive
+              ESP_LOGD(TAG, "Shift state: Drive (D)");
+              break;
+            case CarServer_ShiftState_SNA_tag:
+              shift_state_value = 4; // Shift Not Available
+              ESP_LOGD(TAG, "Shift state: Shift Not Available (SNA)");
+              break;
+            case CarServer_ShiftState_Invalid_tag:
+            default:
+              shift_state_value = -1; // Invalid
+              ESP_LOGD(TAG, "Shift state: Invalid");
+              break;
+          }
+          
+          // Update the sensor
+          updateShiftState(shift_state_value);
+          ESP_LOGI(TAG, "Updated shift state sensor: %d", shift_state_value);
+        }
+        else
+        {
+          ESP_LOGD(TAG, "Drive state does not contain shift state");
+        }
+      }
+      else
+      {
+        ESP_LOGD(TAG, "Vehicle data does not contain drive state");
+      }
+      
+      return 0;
     }
   } // namespace tesla_ble_vehicle
 } // namespace esphome
