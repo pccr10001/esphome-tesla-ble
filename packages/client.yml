@@ -22,6 +22,7 @@ tesla_ble_vehicle:
     name: "Charge flap"
   shift_state:
     name: "Shift State"
+    id: shift_state
 
 button:
   - platform: template

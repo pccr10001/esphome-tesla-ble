@@ -855,6 +855,7 @@ namespace esphome
       {
         ESP_LOGD(TAG, "Querying vehicle status update..");
         enqueueVCSECInformationRequest();
+        sendCarServerVehicleActionMessage(GET_SHIFT_STATE, 0);
         return;
       }
     }
