@@ -1163,8 +1163,7 @@ namespace esphome
 
     int TeslaBLEVehicle::sendSessionInfoRequest(UniversalMessage_Domain domain)
     {
-      constexpr size_t max_message_size = 512; // Use a reasonable fixed size
-      unsigned char message_buffer[max_message_size];
+      unsigned char message_buffer[UniversalMessage_RoutableMessage_size];
       size_t message_length = 0;
       int return_code = tesla_ble_client_->buildSessionInfoRequestMessage(
           domain,
@@ -1207,8 +1206,7 @@ namespace esphome
     int TeslaBLEVehicle::sendVCSECActionMessage(VCSEC_RKEAction_E action)
     {
       ESP_LOGD(TAG, "Building sendVCSECActionMessage");
-      constexpr size_t max_message_size = 512; // Use a reasonable fixed size
-      unsigned char action_message_buffer[max_message_size];
+      unsigned char action_message_buffer[UniversalMessage_RoutableMessage_size];
       size_t action_message_buffer_length = 0;
       int return_code = tesla_ble_client_->buildVCSECActionMessage(action, action_message_buffer, &action_message_buffer_length);
       if (return_code != 0)
@@ -1260,8 +1258,7 @@ namespace esphome
     int TeslaBLEVehicle::sendVCSECInformationRequest()
     {
       ESP_LOGD(TAG, "Building sendVCSECInformationRequest");
-      constexpr size_t max_message_size = 512; // Use a reasonable fixed size
-      unsigned char message_buffer[max_message_size];
+      unsigned char message_buffer[UniversalMessage_RoutableMessage_size];
       size_t message_length = 0;
       int return_code = tesla_ble_client_->buildVCSECInformationRequestMessage(
           VCSEC_InformationRequestType_INFORMATION_REQUEST_TYPE_GET_STATUS,
@@ -1330,8 +1327,7 @@ namespace esphome
       command_queue_.emplace(
           UniversalMessage_Domain_DOMAIN_INFOTAINMENT, [this, action, action_str, param]()
           {
-        constexpr size_t max_message_size = 512; // Use a reasonable fixed size
-        unsigned char message_buffer[max_message_size];
+        unsigned char message_buffer[UniversalMessage_RoutableMessage_size];
         size_t message_length = 0;
         int return_code = 0;
         ESP_LOGI(TAG, "[%s] Building message..", action_str.c_str());
