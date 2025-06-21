@@ -779,29 +779,13 @@ namespace esphome
             pb_byte_t decrypted_payload[100];
             size_t decrypted_length = 0;
             
-            // Extract nonce and tag from callback fields
-            pb_byte_t nonce[12];
-            pb_byte_t tag[16];
-            
-            if (gcm_data.nonce.bytes && gcm_data.nonce.size == 12)
-            {
-              memcpy(nonce, gcm_data.nonce.bytes, 12);
-            }
-            else
-            {
-              ESP_LOGE(TAG, "Invalid nonce in encrypted response");
-              return;
-            }
-            
-            if (gcm_data.tag.bytes && gcm_data.tag.size == 16)
-            {
-              memcpy(tag, gcm_data.tag.bytes, 16);
-            }
-            else
-            {
-              ESP_LOGE(TAG, "Invalid tag in encrypted response");
-              return;
-            }
+                         // Extract nonce and tag from fixed-length byte arrays
+             pb_byte_t nonce[12];
+             pb_byte_t tag[16];
+             
+             // Copy nonce and tag directly from the structure
+             memcpy(nonce, gcm_data.nonce, 12);
+             memcpy(tag, gcm_data.tag, 16);
             
             int decrypt_result = session->Decrypt(
                 message.payload.protobuf_message_as_bytes.bytes,
@@ -1179,7 +1163,8 @@ namespace esphome
 
     int TeslaBLEVehicle::sendSessionInfoRequest(UniversalMessage_Domain domain)
     {
-      unsigned char message_buffer[UniversalMessage_RoutableMessage_size];
+      constexpr size_t max_message_size = 512; // Use a reasonable fixed size
+      unsigned char message_buffer[max_message_size];
       size_t message_length = 0;
       int return_code = tesla_ble_client_->buildSessionInfoRequestMessage(
           domain,
@@ -1222,7 +1207,8 @@ namespace esphome
     int TeslaBLEVehicle::sendVCSECActionMessage(VCSEC_RKEAction_E action)
     {
       ESP_LOGD(TAG, "Building sendVCSECActionMessage");
-      unsigned char action_message_buffer[UniversalMessage_RoutableMessage_size];
+      constexpr size_t max_message_size = 512; // Use a reasonable fixed size
+      unsigned char action_message_buffer[max_message_size];
       size_t action_message_buffer_length = 0;
       int return_code = tesla_ble_client_->buildVCSECActionMessage(action, action_message_buffer, &action_message_buffer_length);
       if (return_code != 0)
@@ -1274,7 +1260,8 @@ namespace esphome
     int TeslaBLEVehicle::sendVCSECInformationRequest()
     {
       ESP_LOGD(TAG, "Building sendVCSECInformationRequest");
-      unsigned char message_buffer[UniversalMessage_RoutableMessage_size];
+      constexpr size_t max_message_size = 512; // Use a reasonable fixed size
+      unsigned char message_buffer[max_message_size];
       size_t message_length = 0;
       int return_code = tesla_ble_client_->buildVCSECInformationRequestMessage(
           VCSEC_InformationRequestType_INFORMATION_REQUEST_TYPE_GET_STATUS,
@@ -1343,7 +1330,8 @@ namespace esphome
       command_queue_.emplace(
           UniversalMessage_Domain_DOMAIN_INFOTAINMENT, [this, action, action_str, param]()
           {
-        unsigned char message_buffer[UniversalMessage_RoutableMessage_size];
+        constexpr size_t max_message_size = 512; // Use a reasonable fixed size
+        unsigned char message_buffer[max_message_size];
         size_t message_length = 0;
         int return_code = 0;
         ESP_LOGI(TAG, "[%s] Building message..", action_str.c_str());
