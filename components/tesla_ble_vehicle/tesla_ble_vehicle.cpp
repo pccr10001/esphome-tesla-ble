@@ -739,7 +739,101 @@ namespace esphome
         case UniversalMessage_Domain_DOMAIN_INFOTAINMENT:
         {
           CarServer_Response carserver_response = CarServer_Response_init_default;
-          int return_code = tesla_ble_client_->parsePayloadCarServerResponse(&message.payload.protobuf_message_as_bytes, &carserver_response);
+          UniversalMessage_RoutableMessage_protobuf_message_as_bytes_t payload_to_parse;
+          
+          // Check if response is encrypted
+          if (message.which_sub_sigData == UniversalMessage_RoutableMessage_signature_data_tag &&
+              message.sub_sigData.signature_data.which_sig_type == Signatures_SignatureData_AES_GCM_Response_data_tag)
+          {
+            ESP_LOGD(TAG, "Response has encrypted payload, decrypting...");
+            
+            auto session = tesla_ble_client_->getPeer(UniversalMessage_Domain_DOMAIN_INFOTAINMENT);
+            if (!session->isInitialized())
+            {
+              ESP_LOGE(TAG, "Session not initialized for decryption");
+              return;
+            }
+            
+            auto& gcm_data = message.sub_sigData.signature_data.sig_type.AES_GCM_Response_data;
+            
+            // Construct authenticated data buffer for decryption
+            pb_byte_t ad_buffer[56];
+            size_t ad_buffer_length = 0;
+            
+                         // Use same metadata construction as in Encrypt, but for response verification
+             // Use the counter from the response for metadata construction
+             uint32_t response_counter = gcm_data.counter;
+             uint32_t current_counter = session->getCounter();
+             
+             // Temporarily set the counter to match the response counter for AD buffer construction
+             session->setCounter(response_counter);
+             
+             uint32_t expires_at = 0; // Response doesn't have expires_at typically
+             session->ConstructADBuffer(
+                 Signatures_SignatureType_SIGNATURE_TYPE_AES_GCM_RESPONSE,
+                 tesla_ble_client_->getVIN(), expires_at, ad_buffer, &ad_buffer_length);
+             
+             // Restore the original counter
+             session->setCounter(current_counter);
+            
+            pb_byte_t decrypted_payload[100];
+            size_t decrypted_length = 0;
+            
+            // Extract nonce and tag from callback fields
+            pb_byte_t nonce[12];
+            pb_byte_t tag[16];
+            
+            if (gcm_data.nonce.bytes && gcm_data.nonce.size == 12)
+            {
+              memcpy(nonce, gcm_data.nonce.bytes, 12);
+            }
+            else
+            {
+              ESP_LOGE(TAG, "Invalid nonce in encrypted response");
+              return;
+            }
+            
+            if (gcm_data.tag.bytes && gcm_data.tag.size == 16)
+            {
+              memcpy(tag, gcm_data.tag.bytes, 16);
+            }
+            else
+            {
+              ESP_LOGE(TAG, "Invalid tag in encrypted response");
+              return;
+            }
+            
+            int decrypt_result = session->Decrypt(
+                message.payload.protobuf_message_as_bytes.bytes,
+                message.payload.protobuf_message_as_bytes.size,
+                decrypted_payload,
+                sizeof(decrypted_payload),
+                &decrypted_length,
+                tag,
+                ad_buffer,
+                ad_buffer_length,
+                nonce
+            );
+            
+            if (decrypt_result != 0)
+            {
+              ESP_LOGE(TAG, "Failed to decrypt response payload: %d", decrypt_result);
+              return;
+            }
+            
+            ESP_LOGD(TAG, "Successfully decrypted %zu bytes", decrypted_length);
+            
+            // Use decrypted payload for parsing
+            memcpy(payload_to_parse.bytes, decrypted_payload, decrypted_length);
+            payload_to_parse.size = decrypted_length;
+          }
+          else
+          {
+            // Use original payload if not encrypted
+            payload_to_parse = message.payload.protobuf_message_as_bytes;
+          }
+          
+          int return_code = tesla_ble_client_->parsePayloadCarServerResponse(&payload_to_parse, &carserver_response);
           if (return_code != 0)
           {
             ESP_LOGE(TAG, "Failed to parse incoming message");

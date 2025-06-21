@@ -20,9 +20,6 @@ tesla_ble_vehicle:
     name: "Doors"
   is_charge_flap_open:
     name: "Charge flap"
-  shift_state:
-    name: "Shift State"
-    id: shift_state
 
 button:
   - platform: template
@@ -32,7 +29,6 @@ button:
     on_press:
       - lambda: id(tesla_ble_vehicle_id)->startPair();
     entity_category: diagnostic
-    update_interval: 60s
 
   - platform: template
     name: Wake up
@@ -63,25 +59,6 @@ sensor:
     icon: mdi:bluetooth
     update_interval: 60s
     entity_category: diagnostic
-
-text_sensor:
-  - platform: template
-    name: "${upper_dev_name} Shift State"
-    icon: "mdi:car-shift-pattern"
-    lambda: |-
-      if (id(shift_state).state == 0) {
-        return {"P"};
-      } else if (id(shift_state).state == 1) {
-        return {"R"};
-      } else if (id(shift_state).state == 2) {
-        return {"N"};
-      } else if (id(shift_state).state == 3) {
-        return {"D"};
-      } else if (id(shift_state).state == 4) {
-        return {"SNA"};
-      } else {
-        return {"Unknown"};
-      }
 
 switch:
   - platform: template
