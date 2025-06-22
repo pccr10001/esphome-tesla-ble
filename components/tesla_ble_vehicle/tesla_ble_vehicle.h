@@ -11,6 +11,7 @@
 #include <esphome/components/ble_client/ble_client.h>
 #include <esphome/components/esp32_ble_tracker/esp32_ble_tracker.h>
 #include <esphome/components/sensor/sensor.h>
+#include <esphome/components/text_sensor/text_sensor.h>
 #include <esphome/core/component.h>
 #include <esphome/core/log.h>
 
@@ -148,6 +149,8 @@ namespace esphome
             int sendSessionInfoRequest(UniversalMessage_Domain domain);
             int sendVCSECInformationRequest(void);
             void enqueueVCSECInformationRequest(bool force = false);
+            void enqueueGetVehicleDataRequest();
+            int sendGetVehicleDataRequest();
 
             int writeBLE(const unsigned char *message_buffer, size_t message_length,
                          esp_gatt_write_type_t write_type, esp_gatt_auth_req_t auth_req);
@@ -190,6 +193,20 @@ namespace esphome
                 isUserPresentSensor->set_has_state(has_state);
             }
 
+            void set_text_sensor_shift_state(text_sensor::TextSensor *s) { shiftStateSensor = s; }
+            void updateShiftState(const char* state)
+            {
+                if (shiftStateSensor) {
+                    shiftStateSensor->publish_state(state);
+                }
+            }
+            void setShiftStateHasState(bool has_state)
+            {
+                if (shiftStateSensor) {
+                    shiftStateSensor->set_has_state(has_state);
+                }
+            }
+
         protected:
             std::queue<BLERXChunk> ble_read_queue_;
             std::queue<BLEResponse> response_queue_;
@@ -211,6 +228,8 @@ namespace esphome
             binary_sensor::CustomBinarySensor *isUnlockedSensor;
             binary_sensor::CustomBinarySensor *isUserPresentSensor;
             binary_sensor::CustomBinarySensor *isChargeFlapOpenSensor;
+
+            text_sensor::TextSensor *shiftStateSensor;
 
             std::vector<unsigned char> ble_read_buffer_;
 

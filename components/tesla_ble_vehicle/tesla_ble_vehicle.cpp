@@ -738,64 +738,166 @@ namespace esphome
 
         case UniversalMessage_Domain_DOMAIN_INFOTAINMENT:
         {
-          CarServer_Response carserver_response = CarServer_Response_init_default;
-          int return_code = tesla_ble_client_->parsePayloadCarServerResponse(&message.payload.protobuf_message_as_bytes, &carserver_response);
-          if (return_code != 0)
+          // Check if the message is encrypted (AES_GCM_Response_data)
+          if (message.which_sub_sigData == UniversalMessage_RoutableMessage_signature_data_tag &&
+              message.sub_sigData.signature_data.which_sig_type == Signatures_SignatureData_AES_GCM_Response_data_tag)
           {
-            ESP_LOGE(TAG, "Failed to parse incoming message");
-            return;
-          }
-          ESP_LOGD(TAG, "Parsed CarServer.Response");
-          log_carserver_response(TAG, &carserver_response);
-          if (carserver_response.has_actionStatus && !command_queue_.empty())
-          {
-            BLECommand &current_command = command_queue_.front();
-            if (current_command.domain == UniversalMessage_Domain_DOMAIN_INFOTAINMENT)
+            ESP_LOGD(TAG, "Received encrypted response from INFOTAINMENT");
+            
+            // Get response signature data
+            Signatures_AES_GCM_Response_Signature_Data response_sig = message.sub_sigData.signature_data.sig_type.AES_GCM_Response_data;
+            
+            // Construct the AAD buffer for decryption
+            pb_byte_t ad_buffer[56];
+            size_t ad_buffer_length = 0;
+            auto session = tesla_ble_client_->getPeer(UniversalMessage_Domain_DOMAIN_INFOTAINMENT);
+            session->ConstructResponseADBuffer(
+                Signatures_SignatureType_SIGNATURE_TYPE_AES_GCM_RESPONSE,
+                tesla_ble_client_->VIN,
+                response_sig.counter,
+                0, // custom_expires_at not used for response
+                ad_buffer, &ad_buffer_length);
+            
+            // Decrypt the payload
+            pb_byte_t decrypted_payload[512];
+            size_t decrypted_length = 0;
+            int decrypt_result = session->Decrypt(
+                message.payload.protobuf_message_as_bytes.bytes,
+                message.payload.protobuf_message_as_bytes.size,
+                decrypted_payload, sizeof(decrypted_payload),
+                &decrypted_length,
+                (pb_byte_t*)response_sig.tag,
+                ad_buffer, ad_buffer_length,
+                (pb_byte_t*)response_sig.nonce);
+            
+            if (decrypt_result != 0)
             {
-              switch (carserver_response.actionStatus.result)
+              ESP_LOGE(TAG, "Failed to decrypt response payload");
+              return;
+            }
+            
+            // Parse the decrypted payload
+            CarServer_Response carserver_response = CarServer_Response_init_default;
+            pb_istream_t stream = pb_istream_from_buffer(decrypted_payload, decrypted_length);
+            if (!pb_decode(&stream, CarServer_Response_fields, &carserver_response))
+            {
+              ESP_LOGE(TAG, "Failed to decode decrypted CarServer response: %s", PB_GET_ERROR(&stream));
+              return;
+            }
+            
+            ESP_LOGD(TAG, "Parsed decrypted CarServer.Response");
+            log_carserver_response(TAG, &carserver_response);
+            
+            // Handle shift state data
+            if (carserver_response.which_response_msg == CarServer_Response_getVehicleData_tag &&
+                carserver_response.response_msg.getVehicleData.has_drive_state &&
+                carserver_response.response_msg.getVehicleData.drive_state.has_shift_state)
+            {
+              ESP_LOGD(TAG, "Received shift state data");
+              CarServer_ShiftState shift_state = carserver_response.response_msg.getVehicleData.drive_state.shift_state;
+              
+              const char* shift_state_str = "Unknown";
+              switch (shift_state.which_type)
               {
-              case CarServer_OperationStatus_E_OPERATIONSTATUS_OK:
-                if (current_command.state == BLECommandState::WAITING_FOR_RESPONSE)
-                {
-                  ESP_LOGI(TAG, "[%s] Received CarServer OK message, command completed", current_command.execute_name.c_str());
+                case CarServer_ShiftState_P_tag:
+                  shift_state_str = "P";
+                  break;
+                case CarServer_ShiftState_R_tag:
+                  shift_state_str = "R";
+                  break;
+                case CarServer_ShiftState_N_tag:
+                  shift_state_str = "N";
+                  break;
+                case CarServer_ShiftState_D_tag:
+                  shift_state_str = "D";
+                  break;
+                case CarServer_ShiftState_Invalid_tag:
+                  shift_state_str = "Invalid";
+                  break;
+                case CarServer_ShiftState_SNA_tag:
+                  shift_state_str = "N/A";
+                  break;
+                default:
+                  shift_state_str = "Unknown";
+                  break;
+              }
+              
+              ESP_LOGI(TAG, "Shift state: %s", shift_state_str);
+              updateShiftState(shift_state_str);
+              setShiftStateHasState(true);
+              
+              if (!command_queue_.empty()) {
+                BLECommand &current_command = command_queue_.front();
+                if (current_command.execute_name == "get vehicle data" && 
+                    current_command.state == BLECommandState::WAITING_FOR_RESPONSE) {
+                  ESP_LOGI(TAG, "[%s] Received vehicle data, command completed", current_command.execute_name.c_str());
                   command_queue_.pop();
                 }
-                break;
-              case CarServer_OperationStatus_E_OPERATIONSTATUS_ERROR:
-                // if charging switch is turned on and reason = "is_charging" it's OK
-                // if charging switch is turned of and reason = "is_not_charging" it's OK
-                if (carserver_response.actionStatus.has_result_reason)
+              }
+            }
+          }
+          else
+          {
+            // Handle unencrypted responses (existing code)
+            CarServer_Response carserver_response = CarServer_Response_init_default;
+            int return_code = tesla_ble_client_->parsePayloadCarServerResponse(&message.payload.protobuf_message_as_bytes, &carserver_response);
+            if (return_code != 0)
+            {
+              ESP_LOGE(TAG, "Failed to parse incoming message");
+              return;
+            }
+            ESP_LOGD(TAG, "Parsed CarServer.Response");
+            log_carserver_response(TAG, &carserver_response);
+            if (carserver_response.has_actionStatus && !command_queue_.empty())
+            {
+              BLECommand &current_command = command_queue_.front();
+              if (current_command.domain == UniversalMessage_Domain_DOMAIN_INFOTAINMENT)
+              {
+                switch (carserver_response.actionStatus.result)
                 {
-                  switch (carserver_response.actionStatus.result_reason.which_reason)
-                  {
-                  case CarServer_ResultReason_plain_text_tag:
-                    if (strcmp(carserver_response.actionStatus.result_reason.reason.plain_text, "is_charging") == 0 || strcmp(carserver_response.actionStatus.result_reason.reason.plain_text, "is_not_charging") == 0)
-                    {
-                      ESP_LOGD(TAG, "[%s] Received charging status: %s",
-                               current_command.execute_name.c_str(),
-                               carserver_response.actionStatus.result_reason.reason.plain_text);
-                      if (current_command.state == BLECommandState::WAITING_FOR_RESPONSE)
-                      {
-                        ESP_LOGI(TAG, "[%s] Received CarServer OK message, command completed",
-                                 current_command.execute_name.c_str());
-                        command_queue_.pop();
-                      }
-                    }
-                    break;
-                  default:
-                    break;
-                  }
-                }
-                else
-                {
-                  ESP_LOGE(TAG, "[%s] Received CarServer ERROR message, retrying command..",
-                           current_command.execute_name.c_str());
+                case CarServer_OperationStatus_E_OPERATIONSTATUS_OK:
                   if (current_command.state == BLECommandState::WAITING_FOR_RESPONSE)
                   {
-                    current_command.state = BLECommandState::READY;
+                    ESP_LOGI(TAG, "[%s] Received CarServer OK message, command completed", current_command.execute_name.c_str());
+                    command_queue_.pop();
                   }
+                  break;
+                case CarServer_OperationStatus_E_OPERATIONSTATUS_ERROR:
+                  // if charging switch is turned on and reason = "is_charging" it's OK
+                  // if charging switch is turned of and reason = "is_not_charging" it's OK
+                  if (carserver_response.actionStatus.has_result_reason)
+                  {
+                    switch (carserver_response.actionStatus.result_reason.which_reason)
+                    {
+                    case CarServer_ResultReason_plain_text_tag:
+                      if (strcmp(carserver_response.actionStatus.result_reason.reason.plain_text, "is_charging") == 0 || strcmp(carserver_response.actionStatus.result_reason.reason.plain_text, "is_not_charging") == 0)
+                      {
+                        ESP_LOGD(TAG, "[%s] Received charging status: %s",
+                                 current_command.execute_name.c_str(),
+                                 carserver_response.actionStatus.result_reason.reason.plain_text);
+                        if (current_command.state == BLECommandState::WAITING_FOR_RESPONSE)
+                        {
+                          ESP_LOGI(TAG, "[%s] Received CarServer OK message, command completed",
+                                   current_command.execute_name.c_str());
+                          command_queue_.pop();
+                        }
+                      }
+                      break;
+                    default:
+                      break;
+                    }
+                  }
+                  else
+                  {
+                    ESP_LOGE(TAG, "[%s] Received CarServer ERROR message, retrying command..",
+                             current_command.execute_name.c_str());
+                    if (current_command.state == BLECommandState::WAITING_FOR_RESPONSE)
+                    {
+                      current_command.state = BLECommandState::READY;
+                    }
+                  }
+                  break;
                 }
-                break;
               }
             }
           }
@@ -851,6 +953,7 @@ namespace esphome
       {
         ESP_LOGD(TAG, "Querying vehicle status update..");
         enqueueVCSECInformationRequest();
+        enqueueGetVehicleDataRequest();
         return;
       }
     }
@@ -1218,7 +1321,37 @@ namespace esphome
           action_str);
     }
 
-    // combined function for setting charging parameters
+    void TeslaBLEVehicle::enqueueGetVehicleDataRequest()
+    {
+      ESP_LOGD(TAG, "Enqueueing GetVehicleData request");
+      command_queue_.emplace(
+          UniversalMessage_Domain_DOMAIN_INFOTAINMENT, [this]()
+          {
+        int return_code = this->sendGetVehicleDataRequest();
+        if (return_code != 0)
+        {
+          ESP_LOGE(TAG, "Failed to send GetVehicleDataRequest");
+          return return_code;
+        }
+        return 0; },
+          "get vehicle data");
+    }
+
+    int TeslaBLEVehicle::sendGetVehicleDataRequest()
+    {
+      ESP_LOGD(TAG, "Building GetVehicleData request");
+      pb_byte_t output_buffer[MAX_BLE_MESSAGE_SIZE];
+      size_t output_length = 0;
+
+      if (tesla_ble_client_->buildGetVehicleDataMessage(output_buffer, &output_length) != 0)
+      {
+        ESP_LOGE(TAG, "Failed to build getVehicleData message");
+        return 1;
+      }
+
+      return this->writeBLE(output_buffer, output_length, ESP_GATT_WRITE_TYPE_NO_RSP, ESP_GATT_AUTH_REQ_NONE);
+    }
+  // combined function for setting charging parameters
     int TeslaBLEVehicle::sendCarServerVehicleActionMessage(BLE_CarServer_VehicleAction action, int param)
     {
       std::string action_str;
