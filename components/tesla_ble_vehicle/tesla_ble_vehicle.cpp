@@ -753,7 +753,7 @@ namespace esphome
             auto session = tesla_ble_client_->getPeer(UniversalMessage_Domain_DOMAIN_INFOTAINMENT);
             session->ConstructResponseADBuffer(
                 Signatures_SignatureType_SIGNATURE_TYPE_AES_GCM_RESPONSE,
-                tesla_ble_client_->VIN,
+                tesla_ble_client_->getVIN(),
                 response_sig.counter,
                 0, // custom_expires_at not used for response
                 ad_buffer, &ad_buffer_length);

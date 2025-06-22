@@ -202,8 +202,10 @@ namespace esphome
             }
             void setShiftStateHasState(bool has_state)
             {
-                if (shiftStateSensor) {
-                    shiftStateSensor->set_has_state(has_state);
+                // TextSensor doesn't have set_has_state method like BinarySensor
+                // We'll just publish an empty string if no state is available
+                if (shiftStateSensor && !has_state) {
+                    shiftStateSensor->publish_state("");
                 }
             }
 
