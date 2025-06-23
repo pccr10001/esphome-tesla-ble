@@ -755,6 +755,11 @@ namespace esphome
             if(message.has_signedMessageStatus && message.signedMessageStatus.operation_status == UniversalMessage_OperationStatus_E_OPERATIONSTATUS_ERROR){
               fault = message.signedMessageStatus.signed_message_fault;
             }
+            ESP_LOGD(TAG, "Constructing response AAD buffer");
+            ESP_LOGD(TAG, "Response signature: %s", format_hex(response_sig.tag, 16).c_str());
+            ESP_LOGD(TAG, "Response counter: %d", response_sig.counter);
+            ESP_LOGD(TAG, "Response flags: %d", message.flags);
+            ESP_LOGD(TAG, "Response fault: %d", fault);
             session->ConstructResponseADBuffer(
                 Signatures_SignatureType_SIGNATURE_TYPE_AES_GCM_RESPONSE,
                 tesla_ble_client_->getVIN(),
@@ -763,6 +768,7 @@ namespace esphome
                 response_sig.tag,
                 fault,
                 ad_buffer, &ad_buffer_length);
+            ESP_LOGD(TAG, "Response AAD buffer: %s", format_hex(ad_buffer, ad_buffer_length).c_str());
             
             // Decrypt the payload
             pb_byte_t decrypted_payload[512];
@@ -1106,7 +1112,7 @@ namespace esphome
           ESP_LOGE(TAG, "Failed load private key");
           return result_code;
         }
-
+        
         ESP_LOGI(TAG, "Private key loaded successfully");
       }
       return 0;
@@ -1748,6 +1754,7 @@ namespace esphome
           ESP_LOGE(TAG, "Failed to get private key");
           break;
         }
+        ESP_LOGD(TAG, "Private key: %s", format_hex(private_key_buffer, private_key_length).c_str());
         ESP_LOGD(TAG, "Loaded private key");
 
         unsigned char public_key_buffer[PUBLIC_KEY_SIZE];
@@ -1758,6 +1765,7 @@ namespace esphome
           ESP_LOGE(TAG, "Failed to get public key");
           break;
         }
+        ESP_LOGD(TAG, "Public key: %s", format_hex(public_key_buffer, public_key_length).c_str());
         ESP_LOGD(TAG, "Loaded public key");
         break;
       }
