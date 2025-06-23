@@ -757,9 +757,9 @@ namespace esphome
             }
             ESP_LOGD(TAG, "Constructing response AAD buffer");
             ESP_LOGD(TAG, "Response signature: %s", format_hex(response_sig.tag, 16).c_str());
-            ESP_LOGD(TAG, "Response counter: %d", response_sig.counter);
-            ESP_LOGD(TAG, "Response flags: %d", message.flags);
-            ESP_LOGD(TAG, "Response fault: %d", fault);
+            ESP_LOGD(TAG, "Response counter: %ld", response_sig.counter);
+            ESP_LOGD(TAG, "Response flags: %ld", message.flags);
+            ESP_LOGD(TAG, "Response fault: %ld", fault);
             session->ConstructResponseADBuffer(
                 Signatures_SignatureType_SIGNATURE_TYPE_AES_GCM_RESPONSE,
                 tesla_ble_client_->getVIN(),
