@@ -765,7 +765,7 @@ namespace esphome
                 tesla_ble_client_->getVIN(),
                 response_sig.counter,
                 message.flags,
-                response_sig.tag,
+                this->request_hash,
                 fault,
                 ad_buffer, &ad_buffer_length);
             ESP_LOGD(TAG, "Response AAD buffer: %s", format_hex(ad_buffer, ad_buffer_length).c_str());

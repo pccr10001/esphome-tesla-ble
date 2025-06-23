@@ -339,6 +339,12 @@ void log_signature_data(const char *tag, const Signatures_SignatureData *sig)
         ESP_LOGD(tag, "      expires_at: %" PRIu32, sig->sig_type.HMAC_Personalized_data.expires_at);
         ESP_LOGD(tag, "      tag: %s", format_hex(sig->sig_type.HMAC_Personalized_data.tag, 16).c_str());
         break;
+    case Signatures_SignatureData_AES_GCM_Response_data_tag:
+        ESP_LOGD(tag, "    AES_GCM_Response_data: ");
+        ESP_LOGD(tag, "      nonce: %s", format_hex(sig->sig_type.AES_GCM_Response_data.nonce, 12).c_str());
+        ESP_LOGD(tag, "      counter: %" PRIu32, sig->sig_type.AES_GCM_Response_data.counter);
+        ESP_LOGD(tag, "      tag: %s", format_hex(sig->sig_type.AES_GCM_Response_data.tag, 16).c_str());
+        break;
     default:
         ESP_LOGD(tag, "    unknown sig_type");
     }
