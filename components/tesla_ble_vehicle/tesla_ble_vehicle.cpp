@@ -751,11 +751,17 @@ namespace esphome
             pb_byte_t ad_buffer[56];
             size_t ad_buffer_length = 0;
             auto session = tesla_ble_client_->getPeer(UniversalMessage_Domain_DOMAIN_INFOTAINMENT);
+            uint32_t fault = 0;
+            if(message.has_signedMessageStatus && message.signedMessageStatus.operation_status == UniversalMessage_OperationStatus_E_OPERATIONSTATUS_ERROR){
+              fault = message.signedMessageStatus.signed_message_fault;
+            }
             session->ConstructResponseADBuffer(
                 Signatures_SignatureType_SIGNATURE_TYPE_AES_GCM_RESPONSE,
                 tesla_ble_client_->getVIN(),
                 response_sig.counter,
-                0, // custom_expires_at not used for response
+                message.flags,
+                response_sig.tag,
+                fault,
                 ad_buffer, &ad_buffer_length);
             
             // Decrypt the payload
