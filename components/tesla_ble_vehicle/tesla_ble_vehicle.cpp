@@ -824,10 +824,10 @@ namespace esphome
                   shift_state_str = "D";
                   break;
                 case CarServer_ShiftState_Invalid_tag:
-                  shift_state_str = "Invalid";
+                  shift_state_str = "P";
                   break;
                 case CarServer_ShiftState_SNA_tag:
-                  shift_state_str = "N/A";
+                  shift_state_str = "P";
                   break;
                 default:
                   shift_state_str = "Unknown";
