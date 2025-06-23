@@ -1754,7 +1754,6 @@ namespace esphome
           ESP_LOGE(TAG, "Failed to get private key");
           break;
         }
-        ESP_LOGD(TAG, "Private key: %s", format_hex(private_key_buffer, private_key_length).c_str());
         ESP_LOGD(TAG, "Loaded private key");
 
         unsigned char public_key_buffer[PUBLIC_KEY_SIZE];
@@ -1765,7 +1764,6 @@ namespace esphome
           ESP_LOGE(TAG, "Failed to get public key");
           break;
         }
-        ESP_LOGD(TAG, "Public key: %s", format_hex(public_key_buffer, public_key_length).c_str());
         ESP_LOGD(TAG, "Loaded public key");
         break;
       }
