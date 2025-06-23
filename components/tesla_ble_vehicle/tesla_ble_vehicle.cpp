@@ -748,7 +748,7 @@ namespace esphome
             Signatures_AES_GCM_Response_Signature_Data response_sig = message.sub_sigData.signature_data.sig_type.AES_GCM_Response_data;
             
             // Construct the AAD buffer for decryption
-            pb_byte_t ad_buffer[56];
+            pb_byte_t ad_buffer[63];
             size_t ad_buffer_length = 0;
             auto session = tesla_ble_client_->getPeer(UniversalMessage_Domain_DOMAIN_INFOTAINMENT);
             uint32_t fault = 0;
