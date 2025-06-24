@@ -965,7 +965,6 @@ namespace esphome
       {
         ESP_LOGD(TAG, "Querying vehicle status update..");
         enqueueVCSECInformationRequest();
-        enqueueGetVehicleDataRequest();
         return;
       }
     }
@@ -1560,9 +1559,12 @@ namespace esphome
       {
       case VCSEC_UserPresence_E_VEHICLE_USER_PRESENCE_PRESENT:
         this->updateIsUserPresent(true);
+        enqueueGetVehicleDataRequest();
         break;
       case VCSEC_UserPresence_E_VEHICLE_USER_PRESENCE_NOT_PRESENT:
         this->updateIsUserPresent(false);
+        updateShiftState("P");
+        setShiftStateHasState(true);
         break;
       case VCSEC_UserPresence_E_VEHICLE_USER_PRESENCE_UNKNOWN:
       default:
