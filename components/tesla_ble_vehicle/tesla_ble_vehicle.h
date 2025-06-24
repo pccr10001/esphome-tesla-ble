@@ -233,7 +233,7 @@ namespace esphome
             binary_sensor::CustomBinarySensor *isChargeFlapOpenSensor;
 
             text_sensor::TextSensor *shiftStateSensor;
-            char shift_state = "P";
+            char shift_state = 'P';
 
             std::vector<unsigned char> ble_read_buffer_;
 
