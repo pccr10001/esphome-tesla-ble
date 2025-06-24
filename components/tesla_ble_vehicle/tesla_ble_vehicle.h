@@ -196,10 +196,9 @@ namespace esphome
             void set_text_sensor_shift_state(text_sensor::TextSensor *s) { shiftStateSensor = s; }
             void updateShiftState(const char* state)
             {
-                if (shiftStateSensor && shift_state != state[0]) {
-                        shift_state = state[0];
-                        shiftStateSensor->publish_state(state);
-                    }
+                if (shiftStateSensor && (shift_state != state[0])) {
+                    shift_state = state[0];
+                    shiftStateSensor->publish_state(state);
                 }
             }
             void setShiftStateHasState(bool has_state)
