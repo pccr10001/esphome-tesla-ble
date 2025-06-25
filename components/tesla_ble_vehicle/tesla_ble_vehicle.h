@@ -172,6 +172,7 @@ namespace esphome
             void set_binary_sensor_is_user_present(binary_sensor::BinarySensor *s) { isUserPresentSensor = static_cast<binary_sensor::CustomBinarySensor *>(s); }
             void updateIsUserPresent(bool present)
             {
+                user_presence = present;
                 isUserPresentSensor->publish_state(present);
             }
             // Charge flap (chargeFlapStatus)
@@ -233,7 +234,7 @@ namespace esphome
             binary_sensor::CustomBinarySensor *isChargeFlapOpenSensor;
 
             text_sensor::TextSensor *shiftStateSensor;
-            char shift_state = 'P';
+            bool user_presence = false;
 
             std::vector<unsigned char> ble_read_buffer_;
 
