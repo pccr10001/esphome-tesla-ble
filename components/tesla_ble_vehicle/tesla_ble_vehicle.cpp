@@ -965,7 +965,7 @@ namespace esphome
       {
         ESP_LOGD(TAG, "Querying vehicle status update..");
         enqueueVCSECInformationRequest();
-        if(user_presence || force_update_shift_state)
+        if(this->isUserPresentSensor->state)
         {
           enqueueGetVehicleDataRequest();
         }
@@ -1664,7 +1664,6 @@ namespace esphome
         // set binary sensors to unknown
         this->setSensors(false);
         this->setChargeFlapHasState(false);
-        this->force_update_shift_state = true;
 
         // TODO: charging switch off
         this->status_set_warning("BLE connection closed");
