@@ -965,10 +965,10 @@ namespace esphome
       {
         ESP_LOGD(TAG, "Querying vehicle status update..");
         enqueueVCSECInformationRequest();
-        /*if(this->isUserPresentSensor->state)
-        {*/
+        if(this->isUserPresentSensor->state)
+        {
           enqueueGetVehicleDataRequest();
-        //}
+        }
         return;
       }
     }
